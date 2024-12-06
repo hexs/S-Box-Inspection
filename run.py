@@ -84,7 +84,7 @@ if __name__ == '__main__':
     from hexss.threading import Multithread
     import robot_capture
 
-    config = json_load('config.json', default={
+    config = json_load('config.json', {
         'ipv4': '0.0.0.0',
         'port': 3000,
         'device_note': 'PC, RP',
@@ -99,7 +99,7 @@ if __name__ == '__main__':
 
         'image_url': 'http://box01:2002/image?source=video_capture&id=0',
         'robot_url': 'http://box01:2005',
-    })
+    }, True)
 
     close_port(config['ipv4'], config['port'])
 
