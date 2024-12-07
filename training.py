@@ -180,7 +180,7 @@ def training(PCB_name):
         print(f'{model_name} {model}')
         t1 = datetime.now()
         print('-------- >>> crop_img <<< ---------')
-        xx
+
         save_img(model_name, frame_dict)
         t2 = datetime.now()
         print(f'{t2 - t1} เวลาที่ใช้ในการเปลียน img_full เป็น shift_img ')

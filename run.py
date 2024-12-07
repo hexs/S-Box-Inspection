@@ -3,6 +3,7 @@ import logging
 import time
 from hexss import json_load, json_update, is_port_available, close_port, check_packages
 from hexss.network import get_all_ipv4, get_hostname
+from hexss.path import get_script_directory, move_up
 
 check_packages(
     'numpy', 'opencv-python', 'Flask', 'requests', 'pygame', 'pygame-gui', 'tensorflow', 'matplotlib', 'pyzbar',
@@ -91,6 +92,7 @@ if __name__ == '__main__':
         'device': 'RP',
         'resolution_note': ['1920x1080', '800x480'],
         'resolution': '800x480',
+        'model_names': [],
         'model_name_note': ['-', 'QC7-7990-000'],
         'model_name': 'QC7-7990-000',
         'fullscreen': False,
@@ -103,9 +105,16 @@ if __name__ == '__main__':
 
     close_port(config['ipv4'], config['port'])
 
+    script_directory = get_script_directory()
+    projects_directory = move_up(script_directory)
+
     m = Multithread()
     data = {
         'config': config,
+        'script_directory': script_directory,
+        'projects_directory': projects_directory,
+        'model_name': config['model_name'],
+        'model_names': config['model_names'],
         'events': [],
         'play': True,
         'robot capture': '',  # *'', 'capture', 'capture ok', 'error'

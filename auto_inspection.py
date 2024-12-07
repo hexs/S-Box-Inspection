@@ -21,6 +21,7 @@ from theme import theme
 from TextBoxSurface import TextBoxSurface, gradient_surface
 from pygame_function import putText, UITextBox
 from pyzbar.pyzbar import decode
+from os.path import join
 
 
 def scan_qr_code(img):
@@ -181,11 +182,13 @@ class AutoInspection:
         self.config = data['config']
         self.xfunction = self.config.get('xfunction')
         self.resolution = self.config.get('resolution')
+        self.projects_dir = data['projects_directory']
+        self.model_name_dir = join(self.projects_dir, f"auto_inspection_data__{self.data['model_name']}")
         if self.resolution == '1920x1080':
             self.window_size = np.array([1920, 1080])
         else:
             self.window_size = np.array([800, 480])
-        self.model_name = self.config['model_name']
+        self.data['model_name'] = self.config['model_name']
 
         self.np_img = self.IMG.copy()
 
@@ -196,7 +199,7 @@ class AutoInspection:
         self.display = pg.display.set_mode(self.window_size.tolist(), pg.FULLSCREEN if self.config['fullscreen'] else 0)
         self.manager = UIManager(self.display.get_size(), theme_path=theme)
         self.right_click = RightClick(self, self.window_size.tolist())
-        self.setup_ui(data)
+        self.setup_ui()
         self.change_model()
 
         self.file_name = None
@@ -208,7 +211,7 @@ class AutoInspection:
 
     def set_name_for_debug(self, file_name=None):
         self.file_name = datetime.now().strftime("%y%m%d %H%M%S") if file_name is None else file_name
-        json_path = f'data/{self.model_name}/img_full/{self.file_name}.json'
+        json_path = join(self.model_name_dir, 'img_full', f'{self.file_name}.json')
         self.debug_class_name = json_load(json_path, {})
 
     def reset_frame(self):
@@ -246,10 +249,14 @@ class AutoInspection:
         self.frame_dict = None
         self.model_dict = None
         self.mark_dict = None
-        if self.model_name == '-':
+        if self.data['model_name'] == '-':
             pass
         else:
-            json_data = json_load(os.path.join('data', self.model_name, 'frames pos.json'), {})
+            print(self.data['model_name'])
+            frames_pos_file_path = join(self.model_name_dir, 'frames pos.json')
+            print(frames_pos_file_path)
+            json_data = json_load(frames_pos_file_path, {})
+
             self.frame_dict = json_data.get('frames')
             self.model_dict = json_data.get('models')
             self.mark_dict = json_data.get('marks')
@@ -263,23 +270,23 @@ class AutoInspection:
                 frame['xywh_around'] = np.concatenate((frame['xy'], frame['wh'] * frame['k']))
             for name, model in self.model_dict.items() if self.model_dict else ():
                 try:
-                    model['model'] = models.load_model(fr'data/{self.model_name}/model/{name}.h5')
+                    model['model'] = models.load_model(join(self.model_name_dir, f'model/{name}.h5'))
                 except Exception as e:
                     print(f'{YELLOW}Error load model.h5.\n'
-                          f'file error data/{self.model_name}/model/{name}.h5{ENDC}')
+                          f'file error <data>/{self.data["model_name"]}/model/{name}.h5{ENDC}')
                     print(PINK, e, ENDC, sep='')
                 # try:
-                model.update(json_load(fr'data/{self.model_name}/model/{name}.json'))
+                model.update(json_load(join(self.model_name_dir, f'model/{name}.json')))
                 pprint(model)
                 if model['model_class_names'] != model['class_names']:
                     print(f'{YELLOW}class_names       = {model["class_names"]}')
                     print(f'model_class_names = {model["model_class_names"]}{ENDC}')
                 # except Exception as e:
                 #     print(f'{YELLOW}function "load_model" error.\n'
-                #           f'file error data/{self.model_name}/model/{name}.json{ENDC}')
+                #           f'file error <data>/{self.data['model_name']}/model/{name}.json{ENDC}')
                 #     print(PINK, e, ENDC, sep='')
 
-            config = json_load(os.path.join('data', self.model_name, 'model_config.json'))
+            config = json_load(join(self.model_name_dir, 'model_config.json'))
             if config.get(self.resolution):
                 for k, v in config[self.resolution].items():
                     if k == 'scale_factor':
@@ -347,15 +354,14 @@ class AutoInspection:
 
     def create_model_data_dropdown(self, start_option='-'):
         is_full_hd = self.resolution == '1920x1080'
-        os.makedirs('data', exist_ok=True)
-        model_data = os.listdir('data') + ['-']
+        model_data = self.data['model_names'] + ['-']
         rect = Rect(10, 5, 300, 30) if is_full_hd else Rect(10, 0, 200, 30)
         self.model_data_dropdown = UIDropDownMenu(
             model_data, start_option, rect, self.manager,
             anchors={'left_target': self.model_label}
         )
 
-    def panel0_setup(self, data):
+    def panel0_setup(self):
         is_full_hd = self.resolution == '1920x1080'
         # top left
         self.logo_button = UIButton(
@@ -447,7 +453,7 @@ class AutoInspection:
                     self.file_dialog = UIFileDialog(
                         Rect(430, 50, 440, 500) if is_full_hd else Rect(200, 50, 400, 400),
                         self.manager, 'Load Image...', {".png", ".jpg"},
-                        os.path.join('data', self.model_name, 'img_full'),
+                        join(self.model_name_dir, 'img_full'),
                         allow_picking_directories=True,
                         allow_existing_files_only=True,
                         object_id=ObjectID(class_id='@file_dialog', object_id='#open_img_full'),
@@ -455,15 +461,14 @@ class AutoInspection:
 
             if event.type == pygame_gui.UI_BUTTON_START_PRESS:
                 if event.ui_object_id == 'drop_down_menu.#selected_option':
-                    os.makedirs('data', exist_ok=True)
-                    model_data = os.listdir('data') + ['-']
+                    model_data = self.data['model_names'] + ['-']
                     self.model_data_dropdown.options_list = []
                     for option in model_data:
                         self.model_data_dropdown.options_list.append((option, option))
                     self.model_data_dropdown.menu_states[
                         'expanded'].options_list = self.model_data_dropdown.options_list
             if event.type == UI_DROP_DOWN_MENU_CHANGED:
-                self.model_name = self.model_data_dropdown.selected_option[0]
+                self.data['model_name'] = self.model_data_dropdown.selected_option[0]
                 self.change_model()
 
             if event.type == MOUSEBUTTONDOWN:
@@ -477,7 +482,7 @@ class AutoInspection:
                     if self.panel1_rect.collidepoint(mouse.get_pos()):
                         options_list = set()
                         options_list = options_list.union({'zoom to fit'})
-                        if self.model_name != '-':
+                        if self.data['model_name'] != '-':
                             panel_mouse_xy_ = np.array(event.pos) - self.panel1_rect.topleft
                             img_wh_ = np.array(self.np_img.shape[1::-1])
                             panel_wh_ = np.array(self.panel1_rect.size)
@@ -506,9 +511,9 @@ class AutoInspection:
             # right click and select click
             if event.type == UI_SELECTION_LIST_NEW_SELECTION:
                 if event.ui_object_id == '#RightClick.bottom_bar':
-                    if self.model_name != '-':
+                    if self.data['model_name'] != '-':
                         if event.text == 'save config':
-                            json_update(os.path.join('data', self.model_name, 'model_config.json'), {
+                            json_update(join(self.model_name_dir, 'model_config.json'), {
                                 f"{self.resolution}": {
                                     "scale_factor": self.scale_factor,
                                     "img_offset": self.img_offset.tolist()
@@ -518,11 +523,11 @@ class AutoInspection:
                             for name, mark in self.mark_dict.items() if self.mark_dict else ():
                                 xywh = mark['xywh']
                                 img = crop_img(self.np_img, xywh, resize=(180, 180))
-                                cv2.imwrite(os.path.join('data', self.model_name, f'{name}.png'), img)
+                                cv2.imwrite(join(self.model_name_dir, f'{name}.png'), img)
 
                 if event.ui_object_id == '#RightClick.on_panel_1':
                     if event.text == 'zoom to fit':
-                        data = json_load(os.path.join('data', self.model_name, 'model_config.json'), {
+                        data = json_load(join(self.model_name_dir, 'model_config.json'), {
                             f"{self.resolution}": {
                                 "scale_factor": 1,
                                 "img_offset": [0, 0]
@@ -534,13 +539,13 @@ class AutoInspection:
                     if 'add data ' in event.text:
                         pos_name, class_name = event.text.split('add data ')[1].split('->')
                         if self.file_name:
-                            cv2.imwrite(f'data/{self.model_name}/img_full/{self.file_name}.png', self.np_img)
+                            cv2.imwrite(join(self.model_name_dir, 'img_full/{self.file_name}.png'), self.np_img)
                             self.debug_class_name = json_update(
-                                f'data/{self.model_name}/img_full/{self.file_name}.json',
+                                join(self.model_name_dir, 'img_full/{self.file_name}.json'),
                                 {pos_name: class_name}
                             )
                             json_update(
-                                f'data/{self.model_name}/wait_training.json',
+                                join(self.model_name_dir, 'wait_training.json'),
                                 {self.frame_dict[pos_name]['model_used']: True}
                             )
 
@@ -718,15 +723,14 @@ class AutoInspection:
         def read_qr_change_model():
             self.is_show_rects = False
             self.get_surface_form_url(self.config['image_url'])
-            qr_test = scan_qr_code(self.np_img)
+            qr_text = scan_qr_code(self.np_img)
             self.get_surface_form_np(self.np_img)
-            print(f'qr_test {qr_test} || {os.listdir("data")}')
-            if qr_test not in os.listdir('data'):
+            if qr_text not in self.data['model_names']:
                 return 'error'
             else:
-                self.model_name = qr_test
+                self.data['model_name'] = qr_text
                 self.model_data_dropdown.kill()
-                self.create_model_data_dropdown(qr_test)
+                self.create_model_data_dropdown(qr_text)
                 self.change_model()
 
         def capture_button():
@@ -743,7 +747,7 @@ class AutoInspection:
             self.set_name_for_debug()
 
         def adj_button():
-            self.np_img = adj_image(self.np_img, self.model_name, self.mark_dict)
+            self.np_img = adj_image(self.np_img, self.data['model_name'], self.mark_dict)
             self.reset_frame()
 
         is_full_hd = self.resolution == '1920x1080'
@@ -770,7 +774,7 @@ class AutoInspection:
                     self.file_dialog = UIFileDialog(
                         Rect(1360, 130, 440, 500) if is_full_hd else Rect(200, 50, 400, 400),
                         self.manager, 'Load Image...', {".png", ".jpg"},
-                        'data' if self.model_name == '-' else os.path.join('data', self.model_name),
+                        self.projects_dir if self.data['model_name'] == '-' else self.model_name_dir,
                         allow_picking_directories=True,
                         allow_existing_files_only=True,
                         object_id=ObjectID(class_id='@file_dialog', object_id='#open_img_other'),
@@ -808,8 +812,8 @@ class AutoInspection:
             #         self.reset_frame()
             #         self.set_name_for_debug()
 
-    def setup_ui(self, data):
-        self.panel0_setup(data)
+    def setup_ui(self, ):
+        self.panel0_setup()
         self.panel1_setup()
         self.panel2_setup()
 

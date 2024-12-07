@@ -1,3 +1,4 @@
+import os.path
 import time
 import logging
 import numpy as np
@@ -42,7 +43,9 @@ def get_qr_code():
 def main(data):
     robot_url = data['config']['robot_url']
     image_url = data['config']['image_url']
-    robot_data = json_load('data/QC7-7990-000/robot pos.json')
+    projects_dir = data['projects_directory']
+    model_name_dir = os.path.join(projects_dir, f"auto_inspection_data__{data['model_name']}")
+    robot_data = json_load(os.path.join(model_name_dir, 'robot pos.json'))
     w, h = robot_data['img wh']
 
     while data['play']:
