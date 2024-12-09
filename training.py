@@ -6,6 +6,7 @@ import json
 import pathlib
 import matplotlib.pyplot as plt
 import keras
+from hexss.path import get_script_directory, move_up
 from keras import layers, models
 from keras.models import Sequential
 from datetime import datetime
@@ -148,13 +149,18 @@ def create_model(model_name):
     shutil.rmtree(fr"{IMG_FRAME_PATH}/{model_name}")
 
 
-def training(PCB_name):
+def training(inspection_name):
     global IMG_FULL_PATH, IMG_FRAME_PATH, IMG_FRAME_LOG_PATH, MODEL_PATH
+
+    script_dir = get_script_directory()
+    projects_dir = move_up(script_dir)
+    inspection_name_dir = os.path.join(projects_dir, f"auto_inspection_data__{inspection_name}")
+
     # Paths
-    IMG_FULL_PATH = f'data/{PCB_name}/img_full'
-    IMG_FRAME_PATH = f'data/{PCB_name}/img_frame'
-    IMG_FRAME_LOG_PATH = f'data/{PCB_name}/img_frame_log'
-    MODEL_PATH = f'data/{PCB_name}/model'
+    IMG_FULL_PATH = f'{inspection_name_dir}/img_full'
+    IMG_FRAME_PATH = f'{inspection_name_dir}/img_frame'
+    IMG_FRAME_LOG_PATH = f'{inspection_name_dir}/img_frame_log'
+    MODEL_PATH = f'{inspection_name_dir}/model'
 
     # Create necessary directories
     for path in [IMG_FULL_PATH, IMG_FRAME_PATH, IMG_FRAME_LOG_PATH, MODEL_PATH]:
@@ -162,16 +168,16 @@ def training(PCB_name):
 
     model_list = [file.split('.')[0] for file in os.listdir(MODEL_PATH) if file.endswith('.h5')]
     print()
-    print(f'{CYAN}===========  {PCB_name}  ==========={ENDC}')
+    print(f'{CYAN}===========  {inspection_name}  ==========={ENDC}')
     print(f'model.h5 (ที่มี) = {len(model_list)} {model_list}')
 
-    json_data = json_load(os.path.join('data', PCB_name, 'frames pos.json'))
+    json_data = json_load(os.path.join(inspection_name_dir, 'frames pos.json'))
     frame_dict = json_data['frames']
     model_dict = json_data['models']
 
     for model_name, model in model_dict.items():
         # อ่าน wait_training.json
-        wait_training_dict = json_load(f'data/{PCB_name}/wait_training.json', {})
+        wait_training_dict = json_load(f'{inspection_name_dir}/wait_training.json', {})
 
         if model_name not in wait_training_dict.keys() or wait_training_dict[model_name] == False:
             print(f'continue {model_name}')
@@ -186,7 +192,7 @@ def training(PCB_name):
         print(f'{t2 - t1} เวลาที่ใช้ในการเปลียน img_full เป็น shift_img ')
         print('------- >>> training... <<< ---------')
         create_model(model_name)
-        json_update(f'data/{PCB_name}/wait_training.json', {model_name: False})
+        json_update(f'{inspection_name_dir}/wait_training.json', {model_name: False})
         t3 = datetime.now()
         print(f'{t2 - t1} เวลาที่ใช้ในการเปลียน img_full เป็น shift_img ')
         print(f'{t3 - t2} เวลาที่ใช้ในการ training ')
@@ -201,6 +207,7 @@ if __name__ == '__main__':
     img_width = 180
     epochs = 5
 
-    # training(PCB_name='D87 QM7-4643')
-    # training(PCB_name='D07 QM7-3238')
-    training(PCB_name='QC7-7990-000')
+    config = json_load('config.json')
+    for inspection_name in config['model_names']:
+        training(inspection_name)
+

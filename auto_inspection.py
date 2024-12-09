@@ -539,9 +539,9 @@ class AutoInspection:
                     if 'add data ' in event.text:
                         pos_name, class_name = event.text.split('add data ')[1].split('->')
                         if self.file_name:
-                            cv2.imwrite(join(self.model_name_dir, 'img_full/{self.file_name}.png'), self.np_img)
+                            cv2.imwrite(join(self.model_name_dir, f'img_full/{self.file_name}.png'), self.np_img)
                             self.debug_class_name = json_update(
-                                join(self.model_name_dir, 'img_full/{self.file_name}.json'),
+                                join(self.model_name_dir, f'img_full/{self.file_name}.json'),
                                 {pos_name: class_name}
                             )
                             json_update(
