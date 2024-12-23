@@ -1,4 +1,5 @@
 import os
+import time
 from hexss import json_load
 from hexss.constants.cml import *
 from hexss.git import get_repositories, push_if_status_change
@@ -41,4 +42,9 @@ def update_repositories():
 
 
 if __name__ == "__main__":
-    update_repositories()
+    while True:
+        try:
+            update_repositories()
+            break
+        except Exception as e:
+            time.sleep(10)

@@ -25,6 +25,8 @@ from os.path import join
 
 
 def scan_qr_code(img):
+    if img is None:
+        return
     text = '-'
     for qr in decode(img):
         for i in range(len(qr.polygon)):
@@ -176,14 +178,15 @@ class AutoInspection:
                         putText(self.scaled_img_surface, f'{class_name}', rect.move((0, 10)).topleft, 16,
                                 (220, 0, 190), (255, 255, 255), anchor='bottomleft')
 
+    def model_name_dir(self):
+        return join(self.data['projects_directory'], f"auto_inspection_data__{self.data['model_name']}")
+
     def __init__(self, data):
         self.is_show_rects = True
         self.data = data
         self.config = data['config']
         self.xfunction = self.config.get('xfunction')
         self.resolution = self.config.get('resolution')
-        self.projects_dir = data['projects_directory']
-        self.model_name_dir = join(self.projects_dir, f"auto_inspection_data__{self.data['model_name']}")
         if self.resolution == '1920x1080':
             self.window_size = np.array([1920, 1080])
         else:
@@ -211,7 +214,7 @@ class AutoInspection:
 
     def set_name_for_debug(self, file_name=None):
         self.file_name = datetime.now().strftime("%y%m%d %H%M%S") if file_name is None else file_name
-        json_path = join(self.model_name_dir, 'img_full', f'{self.file_name}.json')
+        json_path = join(self.model_name_dir(), 'img_full', f'{self.file_name}.json')
         self.debug_class_name = json_load(json_path, {})
 
     def reset_frame(self):
@@ -246,6 +249,7 @@ class AutoInspection:
         self.adj_button.disable()
         self.predict_button.disable()
         self.open_image_button.disable()
+        self.save_image_button.disable()
         self.frame_dict = None
         self.model_dict = None
         self.mark_dict = None
@@ -253,7 +257,7 @@ class AutoInspection:
             pass
         else:
             print(self.data['model_name'])
-            frames_pos_file_path = join(self.model_name_dir, 'frames pos.json')
+            frames_pos_file_path = join(self.model_name_dir(), 'frames pos.json')
             print(frames_pos_file_path)
             json_data = json_load(frames_pos_file_path, {})
 
@@ -270,23 +274,23 @@ class AutoInspection:
                 frame['xywh_around'] = np.concatenate((frame['xy'], frame['wh'] * frame['k']))
             for name, model in self.model_dict.items() if self.model_dict else ():
                 try:
-                    model['model'] = models.load_model(join(self.model_name_dir, f'model/{name}.h5'))
+                    model['model'] = models.load_model(join(self.model_name_dir(), f'model/{name}.h5'))
                 except Exception as e:
                     print(f'{YELLOW}Error load model.h5.\n'
                           f'file error <data>/{self.data["model_name"]}/model/{name}.h5{ENDC}')
                     print(PINK, e, ENDC, sep='')
-                # try:
-                model.update(json_load(join(self.model_name_dir, f'model/{name}.json')))
-                pprint(model)
-                if model['model_class_names'] != model['class_names']:
-                    print(f'{YELLOW}class_names       = {model["class_names"]}')
-                    print(f'model_class_names = {model["model_class_names"]}{ENDC}')
-                # except Exception as e:
-                #     print(f'{YELLOW}function "load_model" error.\n'
-                #           f'file error <data>/{self.data['model_name']}/model/{name}.json{ENDC}')
-                #     print(PINK, e, ENDC, sep='')
+                try:
+                    model.update(json_load(join(self.model_name_dir(), f'model/{name}.json')))
+                    pprint(model)
+                    if model['model_class_names'] != model['class_names']:
+                        print(f'{YELLOW}class_names       = {model["class_names"]}')
+                        print(f'model_class_names = {model["model_class_names"]}{ENDC}')
+                except Exception as e:
+                    print(f'{YELLOW}function "load_model" error.\n'
+                          f'file error <data>/{self.data["model_name"]}/model/{name}.json{ENDC}')
+                    print(PINK, e, ENDC, sep='')
 
-            config = json_load(join(self.model_name_dir, 'model_config.json'))
+            config = json_load(join(self.model_name_dir(), 'model_config.json'))
             if config.get(self.resolution):
                 for k, v in config[self.resolution].items():
                     if k == 'scale_factor':
@@ -297,6 +301,7 @@ class AutoInspection:
             self.update_status()
 
             self.open_image_button.enable()
+            self.save_image_button.enable()
             self.adj_button.enable() if self.mark_dict else self.adj_button.disable()
             self.predict_button.enable() if self.model_dict else self.predict_button.disable()
 
@@ -381,7 +386,13 @@ class AutoInspection:
             'Open...', self.manager,
             anchors={'left_target': self.model_data_dropdown}
         )
+        self.save_image_button = UIButton(
+            Rect(10, 5, 60, 30) if is_full_hd else Rect(10, 0, 60, 30),
+            'Save...', self.manager,
+            anchors={'left_target': self.open_image_button}
+        )
         self.open_image_button.disable()
+        self.save_image_button.disable()
 
         # top right
         anchors = {'top': 'top', 'left': 'right', 'bottom': 'top', 'right': 'right'}
@@ -453,11 +464,14 @@ class AutoInspection:
                     self.file_dialog = UIFileDialog(
                         Rect(430, 50, 440, 500) if is_full_hd else Rect(200, 50, 400, 400),
                         self.manager, 'Load Image...', {".png", ".jpg"},
-                        join(self.model_name_dir, 'img_full'),
+                        join(self.model_name_dir(), 'img_full'),
                         allow_picking_directories=True,
                         allow_existing_files_only=True,
                         object_id=ObjectID(class_id='@file_dialog', object_id='#open_img_full'),
                     )
+                if event.ui_element == self.save_image_button:
+                    self.set_name_for_debug()
+
 
             if event.type == pygame_gui.UI_BUTTON_START_PRESS:
                 if event.ui_object_id == 'drop_down_menu.#selected_option':
@@ -513,7 +527,7 @@ class AutoInspection:
                 if event.ui_object_id == '#RightClick.bottom_bar':
                     if self.data['model_name'] != '-':
                         if event.text == 'save config':
-                            json_update(join(self.model_name_dir, 'model_config.json'), {
+                            json_update(join(self.model_name_dir(), 'model_config.json'), {
                                 f"{self.resolution}": {
                                     "scale_factor": self.scale_factor,
                                     "img_offset": self.img_offset.tolist()
@@ -523,11 +537,11 @@ class AutoInspection:
                             for name, mark in self.mark_dict.items() if self.mark_dict else ():
                                 xywh = mark['xywh']
                                 img = crop_img(self.np_img, xywh, resize=(180, 180))
-                                cv2.imwrite(join(self.model_name_dir, f'{name}.png'), img)
+                                cv2.imwrite(join(self.model_name_dir(), f'{name}.png'), img)
 
                 if event.ui_object_id == '#RightClick.on_panel_1':
                     if event.text == 'zoom to fit':
-                        data = json_load(join(self.model_name_dir, 'model_config.json'), {
+                        data = json_load(join(self.model_name_dir(), 'model_config.json'), {
                             f"{self.resolution}": {
                                 "scale_factor": 1,
                                 "img_offset": [0, 0]
@@ -539,13 +553,13 @@ class AutoInspection:
                     if 'add data ' in event.text:
                         pos_name, class_name = event.text.split('add data ')[1].split('->')
                         if self.file_name:
-                            cv2.imwrite(join(self.model_name_dir, f'img_full/{self.file_name}.png'), self.np_img)
+                            cv2.imwrite(join(self.model_name_dir(), f'img_full/{self.file_name}.png'), self.np_img)
                             self.debug_class_name = json_update(
-                                join(self.model_name_dir, f'img_full/{self.file_name}.json'),
+                                join(self.model_name_dir(), f'img_full/{self.file_name}.json'),
                                 {pos_name: class_name}
                             )
                             json_update(
-                                join(self.model_name_dir, 'wait_training.json'),
+                                join(self.model_name_dir(), 'wait_training.json'),
                                 {self.frame_dict[pos_name]['model_used']: True}
                             )
 
@@ -774,7 +788,7 @@ class AutoInspection:
                     self.file_dialog = UIFileDialog(
                         Rect(1360, 130, 440, 500) if is_full_hd else Rect(200, 50, 400, 400),
                         self.manager, 'Load Image...', {".png", ".jpg"},
-                        self.projects_dir if self.data['model_name'] == '-' else self.model_name_dir,
+                        self.data['projects_directory'] if self.data['model_name'] == '-' else self.model_name_dir(),
                         allow_picking_directories=True,
                         allow_existing_files_only=True,
                         object_id=ObjectID(class_id='@file_dialog', object_id='#open_img_other'),

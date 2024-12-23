@@ -123,7 +123,8 @@ if __name__ == '__main__':
 
     m.add_func(auto_inspection.main, args=(data,))
     m.add_func(run_server, args=(data,), join=False)
-    m.add_func(robot_capture.main, args=(data,))
+    if config.get('xfunction') == 'robot':
+        m.add_func(robot_capture.main, args=(data,))
 
     m.start()
     m.join()
