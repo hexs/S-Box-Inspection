@@ -37,7 +37,7 @@ def move_and_capture(row, robot_data, robot_url, image_url):
             continue
 
         res_ok = True
-        for i, v in enumerate(robot_data['robot'][f'{row:02}']['position'],start=1):
+        for i, v in enumerate(robot_data['robot'][f'{row:02}']['position'], start=1):
             if abs(v * 100 - res['data'][f'{i:02}']) < 10:
                 ...
             else:
@@ -54,7 +54,7 @@ def move_and_capture(row, robot_data, robot_url, image_url):
         else:
             print('get_image_from_url image is not None')
         time.sleep(1)
-    cv2.imwrite(f'images/{row}.png',image)
+    cv2.imwrite(f'images/{row}.png', image)
     return image
 
 
@@ -90,7 +90,7 @@ def main(data):
             data['images'] = images
             data['robot capture'] = 'capture ok'  # *'', 'capture', 'capture ok', 'error'
             print('robot capture = capture ok')
-            send_request(robot_url, "move_to", json={"row": 0})
+            send_request(robot_url, "move_to", json={"slave": [1, 2, 3, 4], "row": 0})
 
 
 if __name__ == '__main__':

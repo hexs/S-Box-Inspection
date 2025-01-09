@@ -82,6 +82,10 @@ def send_request(robot_url, endpoint, method='post', **kwargs):
 
 if __name__ == '__main__':
     import auto_inspection
+    from hexss.constants.cml import *
+    from hexss.control_robot import app as robot_app
+    from hexss.control_robot.robot import Robot
+    from hexss.serial import get_comport
     from hexss.threading import Multithread
     import robot_capture
 
@@ -121,10 +125,19 @@ if __name__ == '__main__':
         'images': None,
     }
 
+    try:
+        comport = get_comport('ATEN USB to Serial', 'USB-Serial Controller')
+        robot = Robot(comport, baudrate=38400)
+        print(f"{GREEN}Robot initialized successfully{ENDC}")
+    except Exception as e:
+        print(f"Failed to initialize robot: {e}")
+        exit()
+
     m.add_func(auto_inspection.main, args=(data,))
     m.add_func(run_server, args=(data,), join=False)
     if config.get('xfunction') == 'robot':
         m.add_func(robot_capture.main, args=(data,))
+        robot_app.run, args = (data, robot)
 
     m.start()
     m.join()
