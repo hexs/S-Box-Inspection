@@ -16,7 +16,6 @@ from hexss.constants.cml import *
 from adj_image import adj_image
 from hexss import json_load, json_update
 from hexss.image import get_image, crop_img
-from robot_capture import send_request
 from theme import theme
 from TextBoxSurface import TextBoxSurface, gradient_surface
 from pygame_function import putText, UITextBox
@@ -181,9 +180,10 @@ class AutoInspection:
     def model_name_dir(self):
         return join(self.data['projects_directory'], f"auto_inspection_data__{self.data['model_name']}")
 
-    def __init__(self, data):
+    def __init__(self, data, robot):
         self.is_show_rects = True
         self.data = data
+        self.robot = robot
         self.config = data['config']
         self.xfunction = self.config.get('xfunction')
         self.resolution = self.config.get('resolution')
@@ -472,7 +472,6 @@ class AutoInspection:
                 if event.ui_element == self.save_image_button:
                     self.set_name_for_debug()
 
-
             if event.type == pygame_gui.UI_BUTTON_START_PRESS:
                 if event.ui_object_id == 'drop_down_menu.#selected_option':
                     model_data = self.data['model_names'] + ['-']
@@ -748,7 +747,8 @@ class AutoInspection:
                 self.change_model()
 
         def capture_button():
-            send_request(self.data['config']['robot_url'], "move_to", json={"row": 0})
+            self.robot.move_to([1, 2, 3, 4], row=0)
+            self.robot.wait_for_target([1, 2, 3, 4])
             if self.xfunction == 'robot':
                 if read_qr_change_model() != 'error':
                     self.data['robot capture'] = 'capture'
@@ -879,6 +879,6 @@ class AutoInspection:
             pg.display.update()
 
 
-def main(data):
-    app = AutoInspection(data)
+def main(data, robot):
+    app = AutoInspection(data, robot)
     app.run()

@@ -133,11 +133,14 @@ if __name__ == '__main__':
         print(f"Failed to initialize robot: {e}")
         exit()
 
-    m.add_func(auto_inspection.main, args=(data,))
+    m.add_func(auto_inspection.main, args=(data, robot))
     m.add_func(run_server, args=(data,), join=False)
     if config.get('xfunction') == 'robot':
-        m.add_func(robot_capture.main, args=(data,))
-        robot_app.run, args = (data, robot)
+        m.add_func(robot_capture.main, args=(data, robot))
+        m.add_func(robot_app.run, args=({'config': {
+            "ipv4": '0.0.0.0',
+            "port": 2005
+        }}, robot))
 
     m.start()
     m.join()
