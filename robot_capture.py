@@ -29,8 +29,7 @@ def main(data, robot):
         robot_data = json_load(os.path.join(model_name_dir, 'robot pos.json'))
         w, h = robot_data['img wh']
 
-        if data['robot capture'] == 'capture':
-            print('robot capture = capture')
+        if data['robot step'] == 'capture':
             images = np.zeros([h, w, 3], dtype=np.uint8)
 
             for k, v in robot_data['robot'].items():
@@ -38,9 +37,9 @@ def main(data, robot):
                 slaves = [1, 2, 3, 4]
                 # robot.move_to(slaves=slaves, row=int(k))
                 for slave, position in zip(slaves, v['position']):
-                    robot.move(slave=slave, value=int(position * 100))
+                    robot.move(slave=slave, target_position=int(position * 100))
                 robot.wait_for_target(slaves=slaves)
-                # time.sleep(0.5)
+                time.sleep(0.8)
                 while True:
                     image = get_image_from_url(image_url)
                     if image is not None:
@@ -55,11 +54,9 @@ def main(data, robot):
                 overlay(images, img, overlay_xy)
 
             data['images'] = images
-            data['robot capture'] = 'capture ok'  # *'', 'capture', 'capture ok', 'error'
-            print('robot capture = capture ok')
+            data['robot step'] = 'capture ok'
+            print('robot step = capture ok')
             robot.move_to(slaves=[1, 2, 3, 4], row=0)
 
 
-if __name__ == '__main__':
-    robot_url = 'http://box01:2005'
-    image_url = 'http://box01:2002/image?source=video_capture&id=0'
+

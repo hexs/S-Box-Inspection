@@ -12,7 +12,7 @@ from pygame_gui.core import ObjectID
 from pygame_gui.elements import UIPanel, UILabel, UIButton, UIDropDownMenu, UISelectionList
 from pygame_gui.windows import UIFileDialog
 from keras import models
-from hexss.constants.cml import *
+from hexss.constants.terminal_color import *
 from adj_image import adj_image
 from hexss import json_load, json_update
 from hexss.image import get_image, crop_img
@@ -117,11 +117,6 @@ class AutoInspection:
             np_img = self.IMG.copy()
         self.img_surface = pg.image.frombuffer(np_img.tobytes(), np_img.shape[1::-1], "BGR")
         self.update_scaled_img_surface()
-
-    def get_surface_form_robot(self):
-        # data['robot capture'] is *'', 'capture','read qr code', 'capture ok'
-        self.data['robot capture'] = 'capture'
-        self.capture_button.disable()
 
     def get_surface_form_url(self, url):
         self.np_img = get_image(url, 'numpy')
@@ -277,18 +272,18 @@ class AutoInspection:
                     model['model'] = models.load_model(join(self.model_name_dir(), f'model/{name}.h5'))
                 except Exception as e:
                     print(f'{YELLOW}Error load model.h5.\n'
-                          f'file error <data>/{self.data["model_name"]}/model/{name}.h5{ENDC}')
-                    print(PINK, e, ENDC, sep='')
+                          f'file error <data>/{self.data["model_name"]}/model/{name}.h5{END}')
+                    print(PINK, e, END, sep='')
                 try:
                     model.update(json_load(join(self.model_name_dir(), f'model/{name}.json')))
                     pprint(model)
                     if model['model_class_names'] != model['class_names']:
                         print(f'{YELLOW}class_names       = {model["class_names"]}')
-                        print(f'model_class_names = {model["model_class_names"]}{ENDC}')
+                        print(f'model_class_names = {model["model_class_names"]}{END}')
                 except Exception as e:
                     print(f'{YELLOW}function "load_model" error.\n'
-                          f'file error <data>/{self.data["model_name"]}/model/{name}.json{ENDC}')
-                    print(PINK, e, ENDC, sep='')
+                          f'file error <data>/{self.data["model_name"]}/model/{name}.json{END}')
+                    print(PINK, e, END, sep='')
 
             config = json_load(join(self.model_name_dir(), 'model_config.json'))
             if config.get(self.resolution):
@@ -748,13 +743,12 @@ class AutoInspection:
 
         def capture_button():
             self.robot.move_to([1, 2, 3, 4], row=0)
-            self.robot.wait_for_target([1, 2, 3, 4])
+            # self.robot.wait_for_target([1, 2, 3, 4])
             if self.xfunction == 'robot':
-                if read_qr_change_model() != 'error':
-                    self.data['robot capture'] = 'capture'
-                    self.capture_button.disable()
-                else:
-                    self.data['robot capture'] = 'error'
+                if self.data['robot step'] == 'wait capture':
+                    if read_qr_change_model() != 'error':
+                        self.data['robot step'] = 'capture'
+                        self.capture_button.disable()
             else:
                 self.get_surface_form_url(self.config['image_url'])
             self.reset_frame()
@@ -798,8 +792,7 @@ class AutoInspection:
                 if event.ui_element == self.predict_button:
                     self.predict()
                 if event.ui_element == self.capture_predict_button:
-                    if self.data['robot capture'] != 'capture':
-                        print('capture_predict_button')
+                    if self.data['robot step'] != 'capture':
                         capture_button()
                         self.wait_predict = True
             if event.type == UI_FILE_DIALOG_PATH_PICKED:
@@ -833,9 +826,8 @@ class AutoInspection:
 
     def handle_events(self):
         if self.xfunction == 'robot':
-            # data['robot capture'] is *'', 'capture','read qr code', 'capture ok'
-            if self.data.get('robot capture') == 'capture ok':
-                self.data['robot capture'] = ''
+            if self.data.get('robot step') == 'capture ok':
+                self.data['robot step'] = 'wait capture'
                 self.np_img = self.data['images'].copy()
                 self.get_surface_form_np(self.np_img)
 
