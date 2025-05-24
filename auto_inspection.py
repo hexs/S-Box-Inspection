@@ -840,6 +840,16 @@ class AutoInspection:
                 self.predict_button.enable()
                 self.capture_predict_button.enable()
 
+            if self.data.get('robot step') == 'capture error':
+                self.data['robot step'] = 'wait capture'
+
+                if self.wait_predict:
+                    self.wait_predict = False
+
+                self.capture_button.enable()
+                self.predict_button.enable()
+                self.capture_predict_button.enable()
+
         events = pg.event.get()
         self.panel0_update(events)
         self.panel1_update(events)

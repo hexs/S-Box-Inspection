@@ -5,6 +5,7 @@ from datetime import datetime
 
 from hexss import json_load, json_update, is_port_available, close_port, check_packages, get_hostname
 from hexss.network import get_all_ipv4
+from hexss.server import camera_server
 from hexss.path import get_script_dir, ascend_path
 
 check_packages(
@@ -85,162 +86,100 @@ def send_request(robot_url, endpoint, method='post', **kwargs):
 
 
 def gpio(data, robot):
-    check_packages(
-        'lgpio',
-        auto_install=True
-    )
+    from hexss.raspberrypi.gpio import SimultaneousEvents
+    from gpiozero import DigitalOutputDevice, DigitalInputDevice
 
-    import lgpio
-    import threading
-
-    def read(pin):
-        return lgpio.gpio_read(h, pin)
-
-    def write(pin, status):
-        lgpio.gpio_write(h, pin, status)
-
-    def led_off():
-        global led_blinking
-        global ledstatus
-        led_blinking = False
-        write(BUTTON_LED, 0)
-        ledstatus = 'off'
-
-    def led_on():
-        global led_blinking
-        global ledstatus
-        led_blinking = False
-        write(BUTTON_LED, 1)
-        ledstatus = 'on'
-
-    def blink_led():
-        global led_blinking, led_blinking_time
-        while led_blinking:
-            write(BUTTON_LED, 1)
-            time.sleep(led_blinking_time)
-            write(BUTTON_LED, 0)
-            time.sleep(led_blinking_time)
-
-    def led_blink(blink_time=None):
-        global led_blinking, led_blinking_time
-        global ledstatus
-        if blink_time:
-            led_blinking_time = blink_time
-        if not led_blinking:
-            led_blinking = True
-            threading.Thread(target=blink_led, daemon=True).start()
-
-        ledstatus = 'blink'
-
-
-    def reset_em():
-        write(RESET_EM, 1)
-        time.sleep(0.2)
-        write(RESET_EM, 0)
-        time.sleep(0.2)
-        robot.home(slaves=[1, 2, 3, 4], alarm_reset=True, on_servo=True)
+    def alarm_reset():
+        button_led.blink(0.2, 0.4)
+        reset_alarm.on()
+        time.sleep(0.05)
+        reset_alarm.off()
+        robot.home(slaves=[1, 2, 3, 4], alarm_reset=True, on_servo=True, unpause=True)
         robot.wait_for_target(slaves=[1, 2, 3, 4])
         robot.move_to(slaves=[1, 2, 3, 4], row=0)
+        robot.wait_for_target(slaves=[1, 2, 3, 4])
+        button_led.on()
 
-    # GPIO Pin Definitions
-    OUT1, OUT2, OUT3, OUT4 = 4, 17, 18, 27
-    BUTTON_LED, OUT6, RESET_EM, OUT8 = 22, 23, 24, 25
-    AREA1, AREA2, L_BUTTON, R_BUTTON = 21, 20, 19, 16
-    IN4, IN3, IN2, ALARM = 13, 12, 6, 5
+    def simultaneous_button_events():
+        nonlocal robot
 
-    # Global variables
-    h = lgpio.gpiochip_open(0)
-    led_blinking = False
-    led_blinking_time = 0.3
-    ledstatus = '-'
-    l_button_press = None
-    r_button_press = None
+        print(f'{CYAN}--- simultaneous_button_events ---{END}')
 
-    input_pins = [AREA1, AREA2, L_BUTTON, R_BUTTON, IN4, IN3, IN2, ALARM]
-    output_pins = [OUT1, OUT2, OUT3, OUT4, BUTTON_LED, OUT6, RESET_EM, OUT8]
+        if alarm.value == 1:  # หากเกิด alarm อยู่ให้ reset alarm
+            print('alarm reset')
+            print(f'{CYAN}--- alarm reset ---{END}')
+            alarm_reset()
 
-    for pin in input_pins:
-        lgpio.gpio_claim_input(h, pin)
 
-    for pin in output_pins:
-        lgpio.gpio_claim_output(h, pin)
+        elif robot.stop_waiting:
+            robot.stop_waiting = False
+            alarm_reset()
 
-    reset_em()
-    led_on()
-    step = 1
+        elif data['robot step'] == 'wait capture':  # move robot ไป capture
+            if not (area1.value or area2.value):
+                data['events'].append('Capture&Predict')
+                button_led.blink(0.2, 0.4)
+
+    def alarm_event():
+        nonlocal robot
+        print(f'{CYAN}--- alarm_event ---{END}')
+        robot.stop_waiting = True
+        button_led.blink(0.05, 0.10)
+
+    def area_activated_events():
+        nonlocal robot
+        print(f'{CYAN}--- area_activated_events ---{END}')
+        if data['robot step'] == 'capture':
+            button_led.blink(0.2, 0.4)
+            if robot.stop_waiting == False:
+                robot.stop_waiting = True
+                robot.servo(slaves=[1, 2, 3, 4], on=False)
+
+    def area_deactivated_events():
+        print(f'{CYAN}--- area_deactivated_events ---{END}')
+
+    # 0 setup
+    # 1 wait capture (wait simultaneous_button_events)
+    # 2 capture
+
+    O1, O2, O3, O4, BUTTON_LED, O6, RESET_ALARM, O8 = 4, 17, 18, 27, 22, 23, 24, 25
+    I1, I2, ALARM, I4, R_BUTTON, L_BUTTON, AREA2, AREA1 = 5, 6, 12, 13, 16, 19, 20, 21
+
+    alarm = DigitalInputDevice(ALARM, bounce_time=0.1)
+    reset_alarm = DigitalOutputDevice(RESET_ALARM)
+    button_led = DigitalOutputDevice(BUTTON_LED)
+    r_button = DigitalInputDevice(R_BUTTON, bounce_time=0.1)
+    l_button = DigitalInputDevice(L_BUTTON, bounce_time=0.1)
+    area2 = DigitalInputDevice(AREA2, bounce_time=0.1)
+    area1 = DigitalInputDevice(AREA1, bounce_time=0.1)
+    simultaneous_events = SimultaneousEvents((r_button, l_button), max_interval=0.1)
+
+    alarm.when_activated = alarm_event
+    simultaneous_events.when_activated = simultaneous_button_events
+    area1.when_activated = area_activated_events
+    area2.when_activated = area_activated_events
+    area1.when_deactivated = area_deactivated_events
+    area2.when_deactivated = area_deactivated_events
+
+    alarm_reset()
+    old_robot_step = ['-', '-']
     while True:
-        try:
-            l_button = read(L_BUTTON)
-            r_button = read(R_BUTTON)
-            alarm = read(ALARM)
-            area1 = read(AREA1)
-            area2 = read(AREA2)
-            print(step, area1, area2, l_button, r_button, data['robot step'], ledstatus)
+        time.sleep(0.1)
+        old_robot_step.append(data['robot step'])
+        old_robot_step.pop(0)
 
-            if alarm == 1:
-                led_off()
-                step = 1
+        print(f"{CYAN}{data['robot step']}{END}, robot.stop_waiting={robot.stop_waiting}")
 
-                if l_button == 1:
-                    l_button_press = None
-                if r_button == 1:
-                    r_button_press = None
+        if data['robot step'] == 'capture':  # มีอะไรเข้ามาใน area ตอน capture
+            if (area1.value or area2.value) and robot.stop_waiting == False:
+                data['robot step'] = 'stop'
+                robot.stop_waiting = True
+                robot.servo(slaves=[1, 2, 3, 4], on=False)
 
-                if l_button == 0 and l_button_press is None:
-                    l_button_press = datetime.now()
-                if r_button == 0 and r_button_press is None:
-                    r_button_press = datetime.now()
-
-                if l_button_press is not None and r_button_press is not None:
-                    time_difference = abs((l_button_press - r_button_press).total_seconds())
-                    if time_difference < 0.5:
-                        reset_em()
-
-                continue
-
-            if step == 1:
-                led_on()
-
-                if l_button == 1:
-                    l_button_press = None
-                if r_button == 1:
-                    r_button_press = None
-
-                if l_button == 0 and l_button_press is None:
-                    l_button_press = datetime.now()
-                if r_button == 0 and r_button_press is None:
-                    r_button_press = datetime.now()
-
-                if l_button_press is not None and r_button_press is not None:
-                    time_difference = abs((l_button_press - r_button_press).total_seconds())
-                    if time_difference < 0.5:
-                        data['events'].append('Capture&Predict')
-                        led_blink(0.4)
-                        step = 2
-
-            if data['robot step'] == 'capture':
-                step = 2
-
-
-
-            elif step == 2:
-                if data['robot step'] == 'wait capture':
-                    step = 1
-                    time.sleep(0.5)
-                    led_on()
-            #     if area1 == 1 or area2 == 1:
-            #         # pause(True)
-            #         step == 4
-            #
-            # elif step == 4:
-            #     if l_button == 0 and r_button == 0:
-            #         # pause(False)
-            #         step = 3
-
-            time.sleep(0.1)
-
-        except:
-            ...
+        if old_robot_step[0] != 'capture' and old_robot_step[1] == 'capture':
+            button_led.blink(0.2, 0.4)
+        if old_robot_step[0] != 'wait capture' and old_robot_step[1] == 'wait capture':
+            button_led.on()
 
 
 if __name__ == '__main__':
@@ -292,6 +231,8 @@ if __name__ == '__main__':
         # 'capture ok'    | robot capture        | auto_inspection.main
         # 'capture error' | robot capture        |
 
+        # 'stop'          | gpio                 | auto_inspection.main and robot capture
+
         'images': None,
     }
 
@@ -302,8 +243,9 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"Failed to initialize robot: {e}")
         # exit()
-        robot=None
+        robot = None
 
+    m.add_func(camera_server.run)
     m.add_func(auto_inspection.main, args=(data, robot))
     m.add_func(run_server, args=(data,), join=False)
     if config.get('xfunction') == 'robot':

@@ -30,6 +30,10 @@ def main(data, robot):
         w, h = robot_data['img wh']
 
         if data['robot step'] == 'capture':
+            if robot.stop_waiting:
+                robot.stop_waiting = False
+                robot.servo(slaves=[1, 2, 3, 4], on=True)
+
             images = np.zeros([h, w, 3], dtype=np.uint8)
 
             for k, v in robot_data['robot'].items():
@@ -39,7 +43,12 @@ def main(data, robot):
                 for slave, position in zip(slaves, v['position']):
                     robot.move(slave=slave, target_position=int(position * 100))
                 robot.wait_for_target(slaves=slaves)
-                time.sleep(0.8)
+
+                if data['robot step'] == 'stop':
+                    data['robot step'] = 'capture error'
+                    break
+
+                time.sleep(0.6)
                 while True:
                     image = get_image_from_url(image_url)
                     if image is not None:
@@ -57,6 +66,3 @@ def main(data, robot):
             data['robot step'] = 'capture ok'
             print('robot step = capture ok')
             robot.move_to(slaves=[1, 2, 3, 4], row=0)
-
-
-
