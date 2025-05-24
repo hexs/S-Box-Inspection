@@ -736,10 +736,11 @@ class AutoInspection:
             if qr_text not in self.data['model_names']:
                 return 'error'
             else:
-                self.data['model_name'] = qr_text
-                self.model_data_dropdown.kill()
-                self.create_model_data_dropdown(qr_text)
-                self.change_model()
+                if qr_text != self.data['model_name']:
+                    self.data['model_name'] = qr_text
+                    self.model_data_dropdown.kill()
+                    self.create_model_data_dropdown(qr_text)
+                    self.change_model()
 
         def capture_button():
             self.robot.move_to([1, 2, 3, 4], row=0)
