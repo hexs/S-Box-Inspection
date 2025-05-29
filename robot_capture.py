@@ -29,6 +29,9 @@ def main(data, robot):
         robot_data = json_load(os.path.join(model_name_dir, 'robot pos.json'))
         w, h = robot_data['img wh']
 
+        if data['robot step'] == 'stop':
+            data['robot step'] = 'capture error'
+
         if data['robot step'] == 'capture':
             if robot.stop_waiting:
                 robot.stop_waiting = False
@@ -37,12 +40,15 @@ def main(data, robot):
             images = np.zeros([h, w, 3], dtype=np.uint8)
 
             for k, v in robot_data['robot'].items():
-                print(int(k), v)
+                print(k, v)
                 slaves = [1, 2, 3, 4]
                 # robot.move_to(slaves=slaves, row=int(k))
                 for slave, position in zip(slaves, v['position']):
                     robot.move(slave=slave, target_position=int(position * 100))
                 robot.wait_for_target(slaves=slaves)
+
+                if v['image_data'].get('no_capture'):
+                    continue
 
                 if data['robot step'] == 'stop':
                     data['robot step'] = 'capture error'

@@ -27,6 +27,7 @@ def scan_qr_code(img):
     if img is None:
         return
     text = '-'
+    img = cv2.resize(img, None, fx=0.5, fy=0.5)
     for qr in decode(img):
         for i in range(len(qr.polygon)):
             p1 = qr.polygon[i - 1]
@@ -35,17 +36,18 @@ def scan_qr_code(img):
         text = qr.data.decode("utf-8").strip()
         x1y1 = qr.rect.left, qr.rect.top
         x2y2 = (qr.rect.left + qr.rect.width), (qr.rect.top + qr.rect.height)
-        cv2.rectangle(img, x1y1, x2y2, (255, 0, 0), 8)
+        cv2.rectangle(img, x1y1, x2y2, (255, 0, 0), 5)
 
-        offset = 5
+        offset = 0
         font = 1
-        scale = thickness = 7
+        scale = thickness = 4
         ox, oy = x1y1
         (w, h), _ = cv2.getTextSize(text, font, scale, thickness)
         x1, y1, x2, y2 = ox - offset, oy + offset, ox + w + offset, oy - h - offset
         cv2.rectangle(img, (x1, y1), (x2, y2), (255, 255, 255), cv2.FILLED)
         cv2.putText(img, text, x1y1, font, scale, (100, 100, 255), thickness, cv2.LINE_AA)
-    return text
+    img = cv2.resize(img, None, fx=2, fy=2)
+    return img, text
 
 
 class RightClick:
@@ -731,7 +733,7 @@ class AutoInspection:
         def read_qr_change_model():
             self.is_show_rects = False
             self.get_surface_form_url(self.config['image_url'])
-            qr_text = scan_qr_code(self.np_img)
+            self.np_img, qr_text = scan_qr_code(self.np_img)
             self.get_surface_form_np(self.np_img)
             if qr_text not in self.data['model_names']:
                 return 'error'

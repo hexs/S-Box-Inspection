@@ -4,6 +4,7 @@ import time
 from datetime import datetime
 
 from hexss import json_load, json_update, is_port_available, close_port, check_packages, get_hostname
+from hexss.config import load_config
 from hexss.network import get_all_ipv4
 from hexss.server import camera_server
 from hexss.path import get_script_dir, ascend_path
@@ -258,4 +259,14 @@ if __name__ == '__main__':
             m.add_func(gpio, args=(data, robot))
 
     m.start()
-    m.join()
+    try:
+        while data['play']:
+            # print(m.get_status())
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("\nShutting down...")
+    finally:
+        data['play'] = False
+        config = load_config('camera_server')
+        close_port(config['ipv4'], config['port'], verbose=False)
+        m.join()
