@@ -23,7 +23,7 @@ from TextBoxSurface import TextBoxSurface, gradient_surface
 from pygame_function import putText, UITextBox
 from pyzbar.pyzbar import decode
 from os.path import join
-from .summary_graphs import summary
+from summary_graphs import summary
 
 def scan_qr_code(img):
     if img is None:
@@ -906,7 +906,7 @@ class AutoInspection:
 
                     result = {}
                     for name, frame in self.frame_dict.items() if self.frame_dict else ():
-                        result[name] = frame['class_names_percent']
+                        result[name] = frame.get('class_names_percent')
                     print(result)
 
                     with open(join(result_path, f'result.txt'), 'a') as f:
