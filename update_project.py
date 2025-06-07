@@ -109,11 +109,11 @@ def stage_and_commit(repo: Repo, model_path: Path, details: str) -> bool:
 def main():
     models = [
         'QC7-7956-000',
-        'QC5-9110-7P',
+        'QC5-9110-000',
         'QC5-9113-000',
         'QC7-7990-000',
         'QD1-1988-000',
-        'FE2-1624-000',
+        'FE4-1624-000',
     ]
     prefix = 'auto_inspection_data__'
 
