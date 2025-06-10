@@ -21,7 +21,7 @@ from TextBoxSurface import TextBoxSurface, gradient_surface
 from pygame_function import putText, UITextBox
 from pyzbar.pyzbar import decode
 from os.path import join
-
+from .summary_graphs import summary
 
 def scan_qr_code(img):
     if img is None:
@@ -178,6 +178,7 @@ class AutoInspection:
         return join(self.data['projects_directory'], f"auto_inspection_data__{self.data['model_name']}")
 
     def __init__(self, data, robot):
+        self.save_result = 0
         self.is_show_rects = True
         self.data = data
         self.robot = robot
@@ -353,6 +354,7 @@ class AutoInspection:
             self.fail_n += 1
             self.res_textbox.update_text('res', text='NG', color=(255, 0, 0))
         self.update_status()
+        self.save_result = 1
 
     def create_model_data_dropdown(self, start_option='-'):
         is_full_hd = self.resolution == '1920x1080'
@@ -384,9 +386,14 @@ class AutoInspection:
             anchors={'left_target': self.model_data_dropdown}
         )
         self.save_image_button = UIButton(
-            Rect(10, 5, 60, 30) if is_full_hd else Rect(10, 0, 60, 30),
+            Rect(10, 5, 70, 30) if is_full_hd else Rect(10, 0, 60, 30),
             'Save...', self.manager,
             anchors={'left_target': self.open_image_button}
+        )
+        self.summary_button = UIButton(
+            Rect(10, 5, 70, 30) if is_full_hd else Rect(10, 0, 60, 30),
+            'Summary', self.manager,
+            anchors={'left_target': self.save_image_button}
         )
         self.open_image_button.disable()
         self.save_image_button.disable()
@@ -468,6 +475,8 @@ class AutoInspection:
                     )
                 if event.ui_element == self.save_image_button:
                     self.set_name_for_debug()
+                if event.ui_element == self.summary_button:
+                    summary(self.model_name_dir())
 
             if event.type == pygame_gui.UI_BUTTON_START_PRESS:
                 if event.ui_object_id == 'drop_down_menu.#selected_option':
@@ -883,6 +892,23 @@ class AutoInspection:
 
             pg.display.update()
 
+            if self.save_result:
+                self.save_result += 1
+                if self.save_result == 4:
+                    self.save_result = 0
+
+                    result_path = join(self.model_name_dir(), 'img_result')
+                    os.makedirs(result_path, exist_ok=True)
+                    cv2.imwrite(join(result_path, f'{self.file_name}.png'), self.np_img)
+                    cv2.imwrite(join(result_path, f'{self.file_name}.jpg'), pygame_surface_to_numpy(self.display))
+
+                    result = {}
+                    for name, frame in self.frame_dict.items() if self.frame_dict else ():
+                        result[name] = frame['class_names_percent']
+                    print(result)
+
+                    with open(join(result_path, f'result.txt'), 'a') as f:
+                        f.write(f'{self.file_name}--{json.dumps(result)}\n')
 
 def main(data, robot):
     app = AutoInspection(data, robot)
