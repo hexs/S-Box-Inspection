@@ -1,3 +1,4 @@
+import json
 import os
 from datetime import datetime
 from pprint import pprint
@@ -13,6 +14,7 @@ from pygame_gui.elements import UIPanel, UILabel, UIButton, UIDropDownMenu, UISe
 from pygame_gui.windows import UIFileDialog
 from keras import models
 from hexss.constants.terminal_color import *
+from hexss.image.func import pygame_surface_to_numpy
 from adj_image import adj_image
 from hexss import json_load, json_update
 from hexss.image import get_image, crop_img
