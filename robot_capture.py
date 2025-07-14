@@ -1,20 +1,12 @@
 import os.path
 import time
-import logging
-from pprint import pprint
-
-import cv2
 import numpy as np
 from hexss import json_load
 from hexss.image import get_image_from_url, overlay, crop_img
-import requests
-
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+from hexss.modbus.serial.robot import Robot
 
 
-def main(data, robot):
+def main(data, robot: Robot):
     time.sleep(1)
 
     image_url = data['config']['image_url']
@@ -33,34 +25,26 @@ def main(data, robot):
             data['robot step'] = 'capture error'
 
         if data['robot step'] == 'capture':
-            if robot.stop_waiting:
-                robot.stop_waiting = False
-                robot.servo(slaves=[1, 2, 3, 4], on=True)
-
             images = np.zeros([h, w, 3], dtype=np.uint8)
-
+            errors = []
             for k, v in robot_data['robot'].items():
-                print(k, v)
-                slaves = [1, 2, 3, 4]
-                # robot.move_to(slaves=slaves, row=int(k))
-                for slave, position in zip(slaves, v['position']):
-                    robot.move(slave=slave, target_position=int(position * 100))
-                robot.wait_for_target(slaves=slaves)
+                for slave, position in zip(robot.slaves, v['position']):
+                    slave.move(int(position * 100))
+                error = robot.wait(error_emergency=True, error_servo_off=True, error_paused=True)
+                errors.append(error)
+
+                if error == 'servo off':
+                    data['robot step'] = 'capture error'
+                    break
 
                 if v['image_data'].get('no_capture'):
                     continue
-
-                if data['robot step'] == 'stop':
-                    data['robot step'] = 'capture error'
-                    break
 
                 time.sleep(0.6)
                 while True:
                     image = get_image_from_url(image_url)
                     if image is not None:
                         break
-                    else:
-                        print('get_image_from_url image is not None')
                     time.sleep(1)
 
                 v['image_data']['img'] = image
@@ -68,7 +52,17 @@ def main(data, robot):
                 overlay_xy = v['image_data']['overlay_xy']
                 overlay(images, img, overlay_xy)
 
-            data['images'] = images
-            data['robot step'] = 'capture ok'
-            print('robot step = capture ok')
-            robot.move_to(slaves=[1, 2, 3, 4], row=0)
+            e = robot.is_any_emergency()
+            s = robot.is_any_servo_off()
+            p = robot.is_any_paused()
+            print(errors, '|', e, s, p)
+            if e or s or p:
+                data['robot step'] = 'capture error'
+
+            elif any(status in errors for status in ['paused', 'servo off', 'emergency']):
+                data['robot step'] = 'capture error'
+            else:
+                data['images'] = images
+                data['robot step'] = 'capture ok'
+                robot.move_to(0)
+            print(f'capture {data["robot step"]}')

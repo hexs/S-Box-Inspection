@@ -1,26 +1,24 @@
-import os
-import logging
 import time
-from datetime import datetime
+import hexss
 
-from hexss import json_load, json_update, is_port_available, close_port, check_packages, get_hostname
-from hexss.config import load_config
-from hexss.network import get_all_ipv4
-from hexss.server import camera_server
-from hexss.path import get_script_dir, ascend_path
-
-check_packages(
+hexss.check_packages(
     'numpy', 'opencv-python', 'Flask', 'requests', 'pygame', 'pygame-gui', 'tensorflow', 'matplotlib', 'pyzbar',
     'flatbuffers==23.5.26',
     auto_install=True
 )
 
+from hexss import json_load, close_port, get_hostname
+from hexss.config import load_config
+from hexss.network import get_all_ipv4
+from hexss.server import camera_server
+from hexss.path import get_script_dir, ascend_path
+from hexss.modbus.serial import app as robot_app
+from hexss.modbus.serial.robot import Robot
+from hexss.constants.terminal_color import *
+from hexss.serial import get_comport
+
 from flask import Flask, render_template, request, jsonify, Response
 import requests
-
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
@@ -32,7 +30,7 @@ def index():
         if button_name:
             data = app.config['data']
             data['events'].append(button_name)
-            logger.info(f"Button clicked: {button_name}")
+            print(f"Button clicked: {button_name}")
     return render_template('index.html')
 
 
@@ -61,17 +59,11 @@ def data():
 
 
 def run_server(data):
-    log = logging.getLogger('werkzeug')
-    log.setLevel(logging.ERROR)
-
     app.config['data'] = data
     ipv4 = "0.0.0.0"
     port = data['config']['port']
-    if ipv4 == '0.0.0.0':
-        for ipv4_ in {'127.0.0.1', *get_all_ipv4(), get_hostname()}:
-            logging.info(f"Running on http://{ipv4_}:{port}")
-    else:
-        logging.info(f"Running on http://{ipv4}:{port}")
+    for ipv4_ in {'127.0.0.1', *get_all_ipv4(), get_hostname()} if ipv4 == '0.0.0.0' else {ipv4}:
+        print(f"Running on http://{ipv4_}:{port}")
     app.run(host=ipv4, port=port, debug=False, use_reloader=False)
 
 
@@ -79,65 +71,70 @@ def send_request(robot_url, endpoint, method='post', **kwargs):
     try:
         response = getattr(requests, method)(f"{robot_url}/api/{endpoint}", **kwargs)
         response.raise_for_status()
-        logger.info(f"{endpoint.capitalize()} request sent successfully")
+        print(f"{endpoint.capitalize()} request sent successfully")
         return response.json() if method == 'get' else None
     except requests.RequestException as e:
-        logger.error(f"Error sending {endpoint} request: {e}")
+        print(f"Error sending {endpoint} request: {e}")
         return None
 
 
-def gpio(data, robot):
+def gpio(data, robot: Robot):
     from hexss.raspberrypi.gpio import SimultaneousEvents
     from gpiozero import DigitalOutputDevice, DigitalInputDevice
 
+    def area_ok():
+        return not (area1.value or area2.value)
+
     def alarm_reset():
-        button_led.blink(0.2, 0.4)
-        reset_alarm.on()
-        time.sleep(0.05)
-        reset_alarm.off()
-        robot.home(slaves=[1, 2, 3, 4], alarm_reset=True, on_servo=True, unpause=True)
-        robot.wait_for_target(slaves=[1, 2, 3, 4])
-        robot.move_to(slaves=[1, 2, 3, 4], row=0)
-        robot.wait_for_target(slaves=[1, 2, 3, 4])
-        button_led.on()
+        reset_alarm.on()  # on relay | toggle switch
+        time.sleep(0.05)  # on relay | toggle switch
+        reset_alarm.off()  # on relay | toggle switch
+        robot.home(alarm_reset=True, servo_on=True, unpause=True)
+        robot.move_to(0)
 
     def simultaneous_button_events():
-        nonlocal robot
-
-        print(f'{CYAN}--- simultaneous_button_events ---{END}')
+        nonlocal robot, error_step
+        print(f'{CYAN}--- Press both buttons simultaneously. ---{END}')
+        if robot.is_any_moving():
+            return
+        if robot.is_any_servo_off():
+            robot.alarm_reset()
+            robot.servo(True)
+        if robot.is_any_paused():
+            robot.pause(False)
 
         if alarm.value == 1:  # หากเกิด alarm อยู่ให้ reset alarm
-            print('alarm reset')
             print(f'{CYAN}--- alarm reset ---{END}')
+            button_led.blink(0.2, 0.4)
             alarm_reset()
 
-
-        elif robot.stop_waiting:
-            robot.stop_waiting = False
-            alarm_reset()
+        print('get_distance', robot.get_distance(0))
+        if robot.get_distance(0) > 4.0:
+            robot.move_to(0)
+            print('move_to(0)')
+            button_led.blink(0.2, 0.4)
+            error_step.append('move to 0')
 
         elif data['robot step'] == 'wait capture':  # move robot ไป capture
-            if not (area1.value or area2.value):
+            if area_ok():
                 data['events'].append('Capture&Predict')
                 button_led.blink(0.2, 0.4)
 
     def alarm_event():
         nonlocal robot
         print(f'{CYAN}--- alarm_event ---{END}')
-        robot.stop_waiting = True
-        button_led.blink(0.05, 0.10)
+        button_led.off()
 
     def area_activated_events():
-        nonlocal robot
+        nonlocal robot, error_step
         print(f'{CYAN}--- area_activated_events ---{END}')
-        if data['robot step'] == 'capture':
-            button_led.blink(0.2, 0.4)
-            if robot.stop_waiting == False:
-                robot.stop_waiting = True
-                robot.servo(slaves=[1, 2, 3, 4], on=False)
 
-    def area_deactivated_events():
-        print(f'{CYAN}--- area_deactivated_events ---{END}')
+        if robot.is_any_moving():
+            error_step.append('error')
+            print('area_activated_events append error')
+            robot.pause(True)
+            button_led.off()
+
 
     # 0 setup
     # 1 wait capture (wait simultaneous_button_events)
@@ -146,36 +143,47 @@ def gpio(data, robot):
     O1, O2, O3, O4, BUTTON_LED, O6, RESET_ALARM, O8 = 4, 17, 18, 27, 22, 23, 24, 25
     I1, I2, ALARM, I4, R_BUTTON, L_BUTTON, AREA2, AREA1 = 5, 6, 12, 13, 16, 19, 20, 21
 
-    alarm = DigitalInputDevice(ALARM, bounce_time=0.1)
+    # output
     reset_alarm = DigitalOutputDevice(RESET_ALARM)
     button_led = DigitalOutputDevice(BUTTON_LED)
+
+    # input
+    alarm = DigitalInputDevice(ALARM, bounce_time=0.1)
     r_button = DigitalInputDevice(R_BUTTON, bounce_time=0.1)
     l_button = DigitalInputDevice(L_BUTTON, bounce_time=0.1)
     area2 = DigitalInputDevice(AREA2, bounce_time=0.1)
     area1 = DigitalInputDevice(AREA1, bounce_time=0.1)
-    simultaneous_events = SimultaneousEvents((r_button, l_button), max_interval=0.1)
+    simultaneous_events = SimultaneousEvents((r_button, l_button), max_interval=0.2)
 
     alarm.when_activated = alarm_event
     simultaneous_events.when_activated = simultaneous_button_events
     area1.when_activated = area_activated_events
     area2.when_activated = area_activated_events
-    area1.when_deactivated = area_deactivated_events
-    area2.when_deactivated = area_deactivated_events
 
-    alarm_reset()
     old_robot_step = ['-', '-']
+    error_step = ['-', '-']
+
+    alarm_reset()  # go home
     while True:
         time.sleep(0.1)
+
         old_robot_step.append(data['robot step'])
         old_robot_step.pop(0)
 
-        print(f"{CYAN}{data['robot step']}{END}, robot.stop_waiting={robot.stop_waiting}")
-
         if data['robot step'] == 'capture':  # มีอะไรเข้ามาใน area ตอน capture
-            if (area1.value or area2.value) and robot.stop_waiting == False:
+            if (area1.value or area2.value):
                 data['robot step'] = 'stop'
-                robot.stop_waiting = True
-                robot.servo(slaves=[1, 2, 3, 4], on=False)
+                robot.servo(on=False)
+
+        # print(list(slave.is_moving() for slave in robot.slaves), end=' ')
+        # if error_step[-1] == 'error':
+        #     print('is_any_moving = ', robot.is_any_moving())
+        # else:
+        #     print(error_step)
+
+        if error_step[-1] == 'move to 0' and not robot.is_any_moving():
+            error_step = ['-', '-']
+            button_led.on()
 
         if old_robot_step[0] != 'capture' and old_robot_step[1] == 'capture':
             button_led.blink(0.2, 0.4)
@@ -185,13 +193,8 @@ def gpio(data, robot):
 
 if __name__ == '__main__':
     import auto_inspection
-    from hexss.constants.terminal_color import *
-    from hexss.control_robot import app as robot_app
-    from hexss.control_robot.robot import Robot
-    from hexss.serial import get_comport
     from hexss.threading import Multithread
     import robot_capture
-    import platform
 
     config = json_load('config.json', {
         'ipv4': '0.0.0.0',
@@ -239,11 +242,10 @@ if __name__ == '__main__':
 
     try:
         comport = get_comport('ATEN USB to Serial', 'USB-Serial Controller')
-        robot = Robot(comport, baudrate=38400)
+        robot = Robot(comport, baudrate=38400, num_slaves=4)
         print(f"{GREEN}Robot initialized successfully{END}")
     except Exception as e:
         print(f"Failed to initialize robot: {e}")
-        # exit()
         robot = None
 
     m.add_func(camera_server.run)
@@ -255,7 +257,7 @@ if __name__ == '__main__':
             "ipv4": '0.0.0.0',
             "port": 2005
         }}, robot))
-        if platform.system() == 'Linux':
+        if hexss.system == 'Linux':
             m.add_func(gpio, args=(data, robot))
 
     m.start()

@@ -25,6 +25,7 @@ from pyzbar.pyzbar import decode
 from os.path import join
 from summary_graphs import summary
 
+
 def scan_qr_code(img):
     if img is None:
         return
@@ -258,7 +259,6 @@ class AutoInspection:
         else:
             print(self.data['model_name'])
             frames_pos_file_path = join(self.model_name_dir(), 'frames pos.json')
-            print(frames_pos_file_path)
             json_data = json_load(frames_pos_file_path, {})
 
             self.frame_dict = json_data.get('frames')
@@ -282,7 +282,7 @@ class AutoInspection:
                 try:
                     model.update(json_load(join(self.model_name_dir(), f'model/{name}.json')))
                     pprint(model)
-                    if model['model_class_names'] != model['class_names']:
+                    if set(model['model_class_names']) != set(model['class_names']):
                         print(f'{YELLOW}class_names       = {model["class_names"]}')
                         print(f'model_class_names = {model["model_class_names"]}{END}')
                 except Exception as e:
@@ -315,7 +315,6 @@ class AutoInspection:
 
         res_surface_text = 'OK'
         wh_ = np.array(self.np_img.shape[1::-1])
-        print(self.model_dict)
         for name, frame in self.frame_dict.items() if self.frame_dict else ():
             if self.model_dict[frame['model_used']].get('model'):  # มีไฟล์ model.h5
                 model = self.model_dict[frame['model_used']]['model']
@@ -756,8 +755,8 @@ class AutoInspection:
                     self.change_model()
 
         def capture_button():
-            self.robot.move_to([1, 2, 3, 4], row=0)
-            # self.robot.wait_for_target([1, 2, 3, 4])
+            self.robot.move_to(row=0)
+            self.robot.wait(error_emergency=True, error_servo_off=True, error_paused=True)
             if self.xfunction == 'robot':
                 if self.data['robot step'] == 'wait capture':
                     if read_qr_change_model() != 'error':
@@ -907,10 +906,10 @@ class AutoInspection:
                     result = {}
                     for name, frame in self.frame_dict.items() if self.frame_dict else ():
                         result[name] = frame.get('class_names_percent')
-                    print(result)
 
                     with open(join(result_path, f'result.txt'), 'a') as f:
                         f.write(f'{self.file_name}--{json.dumps(result)}\n')
+
 
 def main(data, robot):
     app = AutoInspection(data, robot)
