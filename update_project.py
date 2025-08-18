@@ -2,6 +2,12 @@ from pathlib import Path
 from typing import List, Optional
 
 import hexss
+
+hexss.check_packages(
+    'GitPython', 'AutoInspection',
+    auto_install=True
+)
+
 from git import Repo, GitCommandError
 from hexss.constants import *
 from hexss.path import get_script_dir, ascend_path
