@@ -28,7 +28,7 @@ def main(data, robot: Robot):
             images = np.zeros([h, w, 3], dtype=np.uint8)
             errors = []
             for k, v in robot_data['robot'].items():
-                for slave, position in zip(robot.slaves, v['position']):
+                for slave, position in zip(robot.slaves.values(), v['position']):
                     slave.move(int(position * 100))
                 error = robot.wait(error_emergency=True, error_servo_off=True, error_paused=True)
                 errors.append(error)

@@ -2,7 +2,7 @@ import time
 import hexss
 
 hexss.check_packages(
-    'numpy', 'opencv-python', 'Flask', 'requests', 'pygame', 'pygame-gui', 'tensorflow', 'matplotlib', 'pyzbar',
+    'opencv-python', 'numpy', 'Flask', 'requests', 'pygame', 'pygame-gui', 'tensorflow', 'matplotlib', 'pyzbar',
     'flatbuffers==23.5.26',
     auto_install=True
 )
@@ -135,7 +135,6 @@ def gpio(data, robot: Robot):
             robot.pause(True)
             button_led.off()
 
-
     # 0 setup
     # 1 wait capture (wait simultaneous_button_events)
     # 2 capture
@@ -242,10 +241,10 @@ if __name__ == '__main__':
 
     try:
         comport = get_comport('ATEN USB to Serial', 'USB-Serial Controller')
-        robot = Robot(comport, baudrate=38400, num_slaves=4)
+        robot = Robot(comport, baudrate=38400, slaves=load_config('control_robot_server')["slaves"])
         print(f"{GREEN}Robot initialized successfully{END}")
     except Exception as e:
-        print(f"Failed to initialize robot: {e}")
+        print(f"{RED}Failed to initialize robot:{END} {e}")
         robot = None
 
     m.add_func(camera_server.run)
