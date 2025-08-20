@@ -280,7 +280,12 @@ class AutoInspection:
                           f'file error <data>/{self.data["model_name"]}/model/{name}.h5{END}')
                     print(PINK, e, END, sep='')
                 try:
-                    model.update(json_load(join(self.model_name_dir(), f'model/{name}.json')))
+                    #### fix bug ###
+                    _m = json_load(join(self.model_name_dir(), f'model/{name}.json'))
+                    if 'class_names' in _m:
+                        _m['model_class_names'] = _m.pop('class_names')
+                    ################
+                    model.update(_m)
                     pprint(model)
                     if set(model['model_class_names']) != set(model['class_names']):
                         print(f'{YELLOW}class_names       = {model["class_names"]}')

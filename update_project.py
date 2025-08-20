@@ -151,7 +151,7 @@ def main():
                     'batch_size': 32,
                     'img_height': 180,
                     'img_width': 180,
-                    'epochs': 5,
+                    'epochs': 8,
                     'shift_values': [-4, -2, 0, 2, 4],
                     'brightness_values': [-24, -12, 0, 12, 24],
                     'contrast_values': [-12, -6, 0, 6, 12],
