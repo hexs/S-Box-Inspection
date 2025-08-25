@@ -24,6 +24,7 @@ from pygame_function import putText, UITextBox
 from pyzbar.pyzbar import decode
 from os.path import join
 from summary_graphs import summary
+import psutil
 
 
 def scan_qr_code(img):
@@ -905,8 +906,13 @@ class AutoInspection:
 
                     result_path = join(self.model_name_dir(), 'img_result')
                     os.makedirs(result_path, exist_ok=True)
-                    cv2.imwrite(join(result_path, f'{self.file_name}.png'), self.np_img)
-                    cv2.imwrite(join(result_path, f'{self.file_name}.jpg'), pygame_surface_to_numpy(self.display))
+
+                    disk_usage = psutil.disk_usage('/')
+                    print(f'{disk_usage.free / (1024 * 1024 * 1024)} GB')
+                    if disk_usage.free > 2 * 1024 * 1024 * 1024:
+                        print(f'save...')
+                        cv2.imwrite(join(result_path, f'{self.file_name}.png'), self.np_img)
+                        cv2.imwrite(join(result_path, f'{self.file_name}.jpg'), pygame_surface_to_numpy(self.display))
 
                     result = {}
                     for name, frame in self.frame_dict.items() if self.frame_dict else ():

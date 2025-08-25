@@ -6,6 +6,8 @@ hexss.check_packages(
     'flatbuffers==23.5.26',
     auto_install=True
 )
+if hexss.system == 'Windows':
+    hexss.check_packages('psutil', auto_install=True)
 
 from hexss import json_load, close_port, get_hostname
 from hexss.config import load_config
