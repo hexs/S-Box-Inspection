@@ -95,6 +95,7 @@ def stage_and_commit(repo: Repo, model_path: Path, details: str) -> bool:
             full_path = model_path / folder_or_file
             if full_path.exists():
                 repo.git.add(str(full_path))
+        repo.git.checkout('main')
         # Stage all .json files
         for json_file in model_path.glob('*.json'):
             repo.git.add(str(json_file))
@@ -120,6 +121,8 @@ def main():
         'QC7-7990-000',
         'QD1-1988-000',
         'FE4-1624-000',
+
+        'QD1-1998',
     ]
     prefix = 'auto_inspection_data__'
 

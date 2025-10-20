@@ -646,20 +646,30 @@ class AutoInspection:
         self.panel2 = UIPanel(self.panel2_rect, manager=self.manager)
 
         if is_full_hd:
-            self.capture_button = UIButton(Rect(10, 10, 100, 50), 'Capture', container=self.panel2_up, )
-            self.load_button = UIButton(Rect(10, 10, 100, 70), 'Load Image', container=self.panel2_up, anchors={
-                'left_target': self.capture_button
-            })
-            self.adj_button = UIButton(Rect(10, 10, 100, 70), 'Adj Image', container=self.panel2_up, anchors={
-                'left_target': self.load_button
-            })
-            self.predict_button = UIButton(Rect(10, 10, 100, 70), 'Predict', container=self.panel2_up, anchors={
-                'left_target': self.adj_button
-            })
-            self.capture_predict_button = UIButton(Rect(10, 10, 100, 70), 'Cap&Predict', container=self.panel2_up,
-                                                   anchors={
-                                                       'left_target': self.predict_button
-                                                   })
+            self.capture_button = UIButton(
+                Rect(10, 10, 103, 70), 'Capture',
+                container=self.panel2_up,
+            )
+            self.load_button = UIButton(
+                Rect(10, 10, 103, 70), 'Load Image',
+                container=self.panel2_up,
+                anchors={'left_target': self.capture_button}
+            )
+            self.adj_button = UIButton(
+                Rect(10, 10, 103, 70), 'Adj Image',
+                container=self.panel2_up,
+                anchors={'left_target': self.load_button}
+            )
+            self.predict_button = UIButton(
+                Rect(10, 10, 103, 70), 'Predict',
+                container=self.panel2_up,
+                anchors={'left_target': self.adj_button}
+            )
+            self.capture_predict_button = UIButton(
+                Rect(10, 10, 100, 70), 'Cap&Predict',
+                container=self.panel2_up,
+                anchors={'left_target': self.predict_button}
+            )
         else:
             self.capture_button = UIButton(Rect(6, 6, 60, 30), 'Capture', container=self.panel2_up, )
             self.load_button = UIButton(Rect(6, 0, 60, 30), 'Load', container=self.panel2_up, anchors={
