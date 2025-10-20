@@ -13,6 +13,7 @@ from pygame_gui.core import ObjectID
 from pygame_gui.elements import UIPanel, UILabel, UIButton, UIDropDownMenu, UISelectionList
 from pygame_gui.windows import UIFileDialog
 from keras import models
+import hexss
 from hexss.constants.terminal_color import *
 from hexss.image.func import pygame_surface_to_numpy
 from adj_image import adj_image
@@ -24,6 +25,9 @@ from pygame_function import putText, UITextBox
 from pyzbar.pyzbar import decode
 from os.path import join
 from summary_graphs import summary
+
+hexss.check_packages('psutil', auto_install=True)
+
 import psutil
 
 
