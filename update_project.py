@@ -90,12 +90,13 @@ def stage_and_commit(repo: Repo, model_path: Path, details: str) -> bool:
     Stages relevant files and directories, commits with the provided details, and pushes to origin/main.
     """
     try:
+        repo.git.checkout('main')
+
         # Stage folders if they exist
         for folder_or_file in ['model/', 'img_full/', 'img_frame_log/']:
             full_path = model_path / folder_or_file
             if full_path.exists():
                 repo.git.add(str(full_path))
-        repo.git.checkout('main')
         # Stage all .json files
         for json_file in model_path.glob('*.json'):
             repo.git.add(str(json_file))
