@@ -38,6 +38,7 @@ def pull_repo(path: Path) -> bool:
     """
     try:
         repo = Repo(str(path))
+        repo.git.checkout('main')
         res = repo.git.pull('origin', 'main')
         print(f"{GREEN}Pulled: {res}{END}")
         return True
@@ -124,6 +125,8 @@ def main():
         'FE4-1624-000',
 
         'QD1-1998',
+        'QC5-9973',
+        'FE3-8546'
     ]
     prefix = 'auto_inspection_data__'
 
@@ -185,6 +188,7 @@ def main():
         details = parse_status_lines(status_lines)
         # details = f"({'),('.join(status_lines)})"
         if details:
+            ...
             stage_and_commit(repo, model_path, details)
         else:
             print(f"{GREEN}No relevant changes detected for {model_folder}.{END}")
