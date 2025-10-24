@@ -4,7 +4,7 @@ from typing import List, Optional
 import hexss
 
 hexss.check_packages(
-    'GitPython', 'AutoInspection',
+    'GitPython', 'AutoInspection', 'opencv-python',
     auto_install=True
 )
 
@@ -126,7 +126,8 @@ def main():
 
         'QD1-1998',
         'QC5-9973',
-        'FE3-8546'
+        'FE3-8546',
+        'QD1-2001'
     ]
     prefix = 'auto_inspection_data__'
 
