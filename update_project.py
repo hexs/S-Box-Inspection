@@ -128,7 +128,7 @@ def main():
         'QD1-1998',
         'QC5-9973',
         'FE3-8546',
-        'QD1-2001'
+        'QD1-2001',
         'QC7-7957'
     ]
     prefix = 'auto_inspection_data__'
