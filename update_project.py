@@ -6,7 +6,7 @@ hexss.check_packages(
 )
 
 from hexss.constants import *
-from hexss.git import clone_or_pull, push_if_dirty
+from hexss.git import clone_or_pull, add, status, push
 from hexss.path import get_script_dir
 from hexss.threading import Multithread
 from AutoInspection import training
@@ -14,6 +14,17 @@ from AutoInspection import training
 
 def main():
     models = [
+        # 'QD1-1985',
+        'QD1-1998',
+        'QD1-2001',  # OK
+        # 'QD1-2073',
+        'QC5-9973',  # OK
+        'QC7-7957',  # OK
+        # 'QC4-9336',
+        'FE3-8546',  # OK
+        '4A3-5526',
+        'QC7-2413',
+
         'QC7-7956-000',
         'QC5-9110-000',
         'QC5-9113-000',
@@ -21,12 +32,6 @@ def main():
         'QD1-1988-000',
         'FE4-1624-000',
         'QC8-0996-000',
-
-        'QD1-1998',
-        'QC5-9973',
-        'FE3-8546',
-        'QD1-2001',
-        'QC7-7957'
     ]
     prefix = 'auto_inspection_data__'
 
@@ -44,7 +49,10 @@ def main():
     else:
         for model in models:
             model_folder = f'{prefix}{model}'
-            clone_or_pull(project_dir / model_folder, f'git@github.com:hexs/{model_folder}.git')
+            try:
+                clone_or_pull(project_dir / model_folder, f'git@github.com:hexs/{model_folder}.git')
+            except:
+                print(f"{RED}Failed to clone or pull {model_folder}{END}")
             print()
 
     # Training
@@ -74,13 +82,16 @@ def main():
         model_path = project_dir / model_folder
         print(f"{CYAN}{model_path}:{END}")
 
-        push_if_dirty(model_path, [
+        file_patterns = [
             'img_full/',
             'img_frame_log/',
             'model/',
-            '*.json'
+            '*.json',
             '.gitignore'
-        ])
+        ]
+        add(model_path, file_patterns)
+        s = status(model_path, file_patterns)
+        push(model_path, commit_message=s if s else None)
 
 
 if __name__ == '__main__':
