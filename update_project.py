@@ -92,6 +92,7 @@ def main():
         add(model_path, file_patterns)
         s = status(model_path, file_patterns)
         push(model_path, commit_message=s if s else None)
+        print()
 
 
 if __name__ == '__main__':
