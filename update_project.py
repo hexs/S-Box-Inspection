@@ -15,7 +15,7 @@ from AutoInspection import training
 def main():
     models = [
         # 'QD1-1985',
-        'QD1-1998',
+        'QD1-1998',  # OK
         'QD1-2001',  # OK
         'QD1-2073',  # OK
         'QC5-9973',  # OK
