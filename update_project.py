@@ -14,7 +14,7 @@ from AutoInspection import training
 
 def main():
     models = [
-        # 'QD1-1985',
+        'QD1-1985',
         'QD1-1998',  # OK
         'QD1-2001',  # OK
         'QD1-2073',  # OK
@@ -22,7 +22,7 @@ def main():
         'QC7-7957',  # OK
         # 'QC4-9336',
         'FE3-8546',  # OK
-        # '4A3-5526',
+        '4A3-5526',
         'QC7-2413',  # OK
 
         'QC7-7956-000',
