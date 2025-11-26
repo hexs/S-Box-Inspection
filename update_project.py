@@ -6,7 +6,7 @@ hexss.check_packages(
 )
 
 from hexss.constants import *
-from hexss.git import clone_or_pull, add, status, push
+from hexss.git import clone_or_pull, add, status, push, commit
 from hexss.path import get_script_dir
 from hexss.threading import Multithread
 from AutoInspection import training
@@ -86,13 +86,28 @@ def main():
             'img_full/',
             'img_frame_log/',
             'model/',
-            '*.json',
+            'frames pos.json',
+            'model_config.json',
+            'robot pos.json',
+            'wait_training.json',
             '.gitignore'
         ]
         add(model_path, file_patterns)
-        s = status(model_path, file_patterns)
-        push(model_path, commit_message=s if s else None)
+        s = status(model_path)
+        if s:
+            commit(model_path, s)
+        if hexss.system != 'Windows':
+            push(model_path)
         print()
+
+    # push
+    if hexss.system == 'Windows':
+        m = Multithread()
+        for model in models:
+            model_folder = f'{prefix}{model}'
+            m.add_func(push, args=(project_dir / model_folder,))
+        m.start()
+        m.join()
 
 
 if __name__ == '__main__':
